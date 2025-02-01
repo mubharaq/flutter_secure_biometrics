@@ -1,0 +1,25 @@
+name: secure_biometrics
+description: A Very Good Project created by Very Good CLI.
+version: 0.1.0+1
+publish_to: none
+homepage: https://github.com/mubharaq/flutter_secure_biometrics.git
+
+
+environment:
+  sdk: ^3.5.0
+  flutter: ^3.24.0
+
+dependencies:
+  asn1lib: ^1.5.8
+  flutter:
+    sdk: flutter
+  flutter_secure_storage: ^9.2.4    
+  local_auth: ^2.3.0  
+  pointycastle: ^3.9.1
+  
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  mocktail: ^1.0.4
+  very_good_analysis: ^6.0.0
