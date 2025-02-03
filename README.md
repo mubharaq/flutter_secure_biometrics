@@ -24,9 +24,11 @@ A Flutter package that implements secure biometric operations with cryptographic
 
 ### Prerequisites
 
-This package uses `local_auth` for biometric operations. Follow platform-specific setup:
+This package uses `local_auth` for biometric operations and `pointycastle` for the cryptographic operations. Follow platform-specific setup:
 
 See [local_auth documentation](https://pub.dev/packages/local_auth) for detailed setup instructions.
+
+see [pointycastle documentation](https://pub.dev/packages/pointycastle)
 
 ### Installation
 
@@ -73,13 +75,16 @@ try {
 ```dart
 // Export public key for server storage
 final publicKeyPEM = await secureBiometrics.exportPublicKeyPEM();
-
-// Verify a signature
-final isValid = await secureBiometrics.verifySignature(
-  data,
-  signature,
-);
 ```
+
+### RSA Signature Scheme
+
+This package uses RSA signatures with the following specifications:
+
+- Key Size: 2048 bits
+- Hash Algorithm: SHA-256
+- Padding Scheme: PKCS#1 v1.5
+- Public Exponent: 65537 (0x10001)
 
 ## Use Cases
 
@@ -135,6 +140,10 @@ try {
 ## Example
 
 Check the [example](example) folder for a complete demonstration app.
+
+## Tests
+
+Check the [test](test) folder for complete test including signature verification.
 
 ## Contributing
 

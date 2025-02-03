@@ -37,25 +37,10 @@ class _BiometricsDemoState extends State<BiometricsDemo> {
   String? _publicKeyPEM;
   bool _hasKeys = false;
 
-  Future<void> _checkKeys() async {
-    try {
-      final publicKey = await _biometrics.getPublicKey();
-      setState(() {
-        _hasKeys = publicKey != null;
-      });
-    } catch (e) {
-      _showError('Error checking keys', e);
-    }
-  }
-
   Future<void> _generateKeys() async {
     setState(() => _status = 'Generating keys...');
     try {
-      final keyPair = await _biometrics.generateKeyPair();
-      await _biometrics.storeKeyPair(
-        privateKey: keyPair.privateKey,
-        publicKey: keyPair.publicKey,
-      );
+      await _biometrics.generateKeyPair();
       await _checkKeys();
       setState(() => _status = 'Keys generated successfully');
     } catch (e) {
@@ -63,16 +48,33 @@ class _BiometricsDemoState extends State<BiometricsDemo> {
     }
   }
 
-  Future<void> _signMessage() async {
-    setState(() => _status = 'Authenticating...');
+  Future<void> _checkKeys() async {
     try {
-      const message = 'Test message to sign';
-      final signature = await _biometrics.signData(message);
-      if (signature != null) {
-        setState(() {
-          _signature = base64.encode(signature);
-          _status = 'Message signed successfully';
-        });
+      final hasKey = await _biometrics.hasKey();
+
+      setState(() => _hasKeys = hasKey);
+    } catch (e) {
+      _showError('Failed to generate keys', e);
+    }
+  }
+
+  Future<void> _signMessage() async {
+    try {
+      final privateKey = await _biometrics.authenticateUser();
+      setState(() {
+        _status = 'Authenticating...';
+        _hasKeys = privateKey != null;
+      });
+      if (privateKey != null) {
+        const message = 'Test message to sign';
+        final signature =
+            await _biometrics.signData(data: message, privateKey: privateKey);
+        if (signature != null) {
+          setState(() {
+            _signature = base64.encode(signature);
+            _status = 'Message signed successfully';
+          });
+        }
       }
     } on MaxAttemptsExceededException {
       setState(() => _status = 'Too many failed attempts');
@@ -82,28 +84,6 @@ class _BiometricsDemoState extends State<BiometricsDemo> {
       setState(() => _status = 'Authentication failed: ${e.message}');
     } catch (e) {
       _showError('Failed to sign message', e);
-    }
-  }
-
-  Future<void> _verifySignature() async {
-    if (_signature == null) {
-      setState(() => _status = 'No signature to verify');
-      return;
-    }
-
-    setState(() => _status = 'Verifying signature...');
-    try {
-      const message = 'Test message to sign';
-      final isValid = await _biometrics.verifySignature(
-        message,
-        base64.decode(_signature!),
-      );
-
-      setState(() {
-        _status = isValid ? 'Signature valid' : 'Signature invalid';
-      });
-    } catch (e) {
-      _showError('Failed to verify signature', e);
     }
   }
 
@@ -177,12 +157,7 @@ class _BiometricsDemoState extends State<BiometricsDemo> {
           ),
           const SizedBox(height: 8),
           ElevatedButton(
-            onPressed: _signature != null ? _verifySignature : null,
-            child: const Text('Verify Signature'),
-          ),
-          const SizedBox(height: 8),
-          ElevatedButton(
-            onPressed: _hasKeys ? _exportPublicKey : null,
+            onPressed: _publicKeyPEM != null ? _exportPublicKey : null,
             child: const Text('Export Public Key'),
           ),
           if (_signature != null) ...[

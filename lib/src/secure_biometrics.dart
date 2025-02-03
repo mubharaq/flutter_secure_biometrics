@@ -66,6 +66,7 @@ class SecureBiometrics {
       final pair = keyGen.generateKeyPair();
       final publicKey = pair.publicKey as RSAPublicKey;
       final privateKey = pair.privateKey as RSAPrivateKey;
+      await _storeKeyPair(privateKey: privateKey);
 
       return KeyPair(privateKey: privateKey, publicKey: publicKey);
     } catch (e) {
@@ -74,14 +75,12 @@ class SecureBiometrics {
   }
 
   /// Signs data using the stored private key
-  Future<Uint8List?> signData(String data, {RSAPrivateKey? key}) async {
+  Future<Uint8List?> signData({
+    required String data,
+    required RSAPrivateKey privateKey,
+  }) async {
     try {
-      final privateKey = await retrievePrivateKey();
-      if (key == null && privateKey == null) {
-        throw const KeyNotFoundException('Private');
-      }
-
-      final finalKey = key ?? privateKey!;
+      final finalKey = privateKey;
       final signer = RSASigner(SHA256Digest(), Constants.padding)
         ..init(true, PrivateKeyParameter<RSAPrivateKey>(finalKey));
 
@@ -95,6 +94,19 @@ class SecureBiometrics {
     }
   }
 
+  /// check if private key exists in storage
+  Future<bool> hasKey() async {
+    try {
+      final key = await getPrivateKey();
+      return key != null;
+    } catch (e) {
+      if (e is SecureBiometricException) rethrow;
+      throw KeyOperationException('Failed to fetch key: $e');
+    }
+  }
+
+  @visibleForTesting
+
   ///verify signed transaction
   Future<bool> verifySignature(
     String data,
@@ -102,7 +114,7 @@ class SecureBiometrics {
     RSAPublicKey? key,
   }) async {
     try {
-      final publicKey = await getPublicKey();
+      final publicKey = await _getPublicKey();
       if (publicKey == null && key == null) {
         throw const KeyNotFoundException('Public');
       }
@@ -134,7 +146,7 @@ class SecureBiometrics {
   }
 
   /// validate user biometric
-  Future<bool> validateBiometric() async {
+  Future<bool> _validateBiometric() async {
     try {
       final failedAttempts = await retrieveFailedAttempts();
       if (failedAttempts >= Constants.maxAttempts) {
@@ -156,16 +168,18 @@ class SecureBiometrics {
         throw const BiometricAuthenticationException('Authentication failed');
       }
 
-      await resetFailedAttempts();
+      await _resetFailedAttempts();
       return true;
     } catch (e) {
+      await _incrementFailedAttempts();
       if (e is SecureBiometricException) rethrow;
       throw BiometricAuthenticationException(e.toString());
     }
   }
 
   /// Store generated RSA keypair
-  Future<bool> storeKeyPair({
+  /// for test cases
+  Future<bool> _storeKeyPair({
     required RSAPrivateKey privateKey,
     RSAPublicKey? publicKey,
   }) async {
@@ -199,9 +213,9 @@ class SecureBiometrics {
   }
 
   /// retrieved stored private key
-  Future<RSAPrivateKey?> retrievePrivateKey() async {
+  Future<RSAPrivateKey?> authenticateUser() async {
     try {
-      final permission = await validateBiometric();
+      final permission = await _validateBiometric();
       if (!permission) {
         throw const BiometricAuthenticationException(
           'Biometric validation is necessary to fetch key',
@@ -225,8 +239,31 @@ class SecureBiometrics {
     }
   }
 
-  /// retrieve public key if it exists
-  Future<RSAPublicKey?> getPublicKey() async {
+  /// retrieve private key if it exists for test
+  /// purposes only
+  @visibleForTesting
+  Future<RSAPrivateKey?> getPrivateKey() async {
+    try {
+      final privateKeyStr =
+          await _storage.retrieveData(key: StorageKeys.privateKey);
+      if (privateKeyStr == null) return null;
+
+      final privateKeyJson = jsonDecode(privateKeyStr) as Map<String, dynamic>;
+      return RSAPrivateKey(
+        BigInt.parse(privateKeyJson['modulus'] as String),
+        BigInt.parse(privateKeyJson['privateExponent'] as String),
+        BigInt.parse(privateKeyJson['p'] as String),
+        BigInt.parse(privateKeyJson['q'] as String),
+      );
+    } catch (e) {
+      if (e is SecureBiometricException) rethrow;
+      throw KeyOperationException('Failed to retrieve private key: $e');
+    }
+  }
+
+  /// retrieve public key if it exists for test
+  /// purposes only
+  Future<RSAPublicKey?> _getPublicKey() async {
     try {
       final publicKeyStr =
           await _storage.retrieveData(key: StorageKeys.publicKey);
@@ -255,19 +292,7 @@ class SecureBiometrics {
   }
 
   /// Stores the number of failed biometric attempts
-  Future<void> storeFailedAttempts(int attempts) async {
-    try {
-      await _storage.storeData(
-        key: StorageKeys.attempts,
-        data: attempts.toString(),
-      );
-    } catch (e) {
-      throw StorageException('Failed to store failed attempts: $e');
-    }
-  }
-
-  /// Stores the number of failed biometric attempts
-  Future<void> resetFailedAttempts() async {
+  Future<void> _resetFailedAttempts() async {
     try {
       await _storage.storeData(
         key: StorageKeys.attempts,
@@ -281,7 +306,7 @@ class SecureBiometrics {
   /// exports PEM-encoded public key
   Future<String> exportPublicKeyPEM() async {
     try {
-      final publicKey = await getPublicKey();
+      final publicKey = await _getPublicKey();
       if (publicKey == null) {
         throw const KeyNotFoundException('Public');
       }
@@ -315,6 +340,7 @@ class SecureBiometrics {
 
   /// Verifies a PEM-encoded public key string
   /// Returns true if the format is valid, false otherwise
+  @visibleForTesting
   static bool verifyPEMFormat(String pem) {
     try {
       if (!pem.startsWith('-----BEGIN PUBLIC KEY-----') ||
@@ -356,6 +382,7 @@ class SecureBiometrics {
 
   /// Parses a PEM-encoded public key string back to RSAPublicKey
   /// Throws FormatException if the PEM is invalid
+  @visibleForTesting
   static Future<RSAPublicKey> parsePEM(String pem) async {
     if (!verifyPEMFormat(pem)) {
       throw const PEMException('Invalid PEM format');
@@ -386,12 +413,13 @@ class SecureBiometrics {
   }
 
   /// Verifies that exported PEM matches the original public key
+  @visibleForTesting
   Future<bool> verifyExportedPEM() async {
     try {
       final pem = await exportPublicKeyPEM();
       if (!verifyPEMFormat(pem)) return false;
 
-      final originalKey = await getPublicKey();
+      final originalKey = await _getPublicKey();
       if (originalKey == null) return false;
 
       final parsedKey = await parsePEM(pem);
