@@ -7,7 +7,7 @@ homepage: https://github.com/mubharaq/flutter_secure_biometrics.git
 
 environment:
   sdk: ^3.5.0
-  flutter: ^3.24.0
+  flutter: '>=3.24.0'
 
 dependencies:
   asn1lib: ^1.5.8
