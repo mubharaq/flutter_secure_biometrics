@@ -4,13 +4,13 @@ A Flutter package that implements secure biometric operations with cryptographic
 
 ## Core Features
 
-- 🔐 Biometric authentication using device hardware
-- 🔑 RSA key pair generation and secure storage
-- 📝 Challenge-response based authentication
-- 🔒 Private key protection with biometric access
-- 📤 Public key export in PEM format
-- ⚡ Failed attempts tracking and management
-- 🔄 Fallback mechanisms for key loss
+- Biometric authentication using device hardware
+- RSA key pair generation and secure storage
+- Challenge-response based authentication
+- Private key protection with biometric access
+- Public key export in PEM format
+- Failed attempts tracking and management
+- Fallback mechanisms for key loss
 
 ## How It Works
 
@@ -86,39 +86,6 @@ This package uses RSA signatures with the following specifications:
 - Padding Scheme: PKCS#1 v1.5
 - Public Exponent: 65537 (0x10001)
 
-## Use Cases
-
-### Secure Sign-In
-
-- User attempts to sign in
-- App requests challenge from server
-- User authenticates with biometrics
-- App signs challenge with private key
-- Server verifies signature with stored public key
-
-### Key Loss Recovery
-
-- User resets device or uninstalls app
-- User signs in with fallback method (password/OTP)
-- Generate new key pair
-- Update server with new public key
-- Re-enable biometric authentication
-
-### Unauthorized Access Prevention
-
-- Another person attempts biometric authentication
-- Device denies access to private key
-- Failed attempt is tracked
-- User is notified of failed attempt
-
-## Security Best Practices
-
-1. Always use device secure storage for private keys
-2. Implement robust fallback authentication
-3. Never expose private keys - use only for signing
-4. Monitor and limit failed authentication attempts
-5. Notify users of security-related events
-
 ## Error Handling
 
 ```dart
@@ -144,13 +111,3 @@ Check the [example](example) folder for a complete demonstration app.
 ## Tests
 
 Check the [test](test) folder for complete test including signature verification.
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create your feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
