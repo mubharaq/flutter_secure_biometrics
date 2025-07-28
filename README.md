@@ -111,3 +111,7 @@ Check the [example](example) folder for a complete demonstration app.
 ## Tests
 
 Check the [test](test) folder for complete test including signature verification.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
